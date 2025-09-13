@@ -402,7 +402,7 @@ def plot_single_model_metrics(temp_stats, model_name, sample_size=30, use_ci=Tru
     return fig, axes
 
 
-def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
+def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True, include_entropy=True):
     """
     Create combined visualization for multiple models' metrics.
     
@@ -418,6 +418,7 @@ def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
             }
         temp_range (tuple): Optional (min_temp, max_temp) to filter data
         use_ci (bool): If True, use 95% confidence intervals; if False, use standard deviation
+        include_entropy (bool): If True, show 6 plots including entropy; if False, show 4 original plots
     
     Returns:
         tuple: (fig, axes) matplotlib objects
@@ -448,7 +449,9 @@ def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
     temp_suffix = f" ({temp_range[0]:.1f}-{temp_range[1]:.1f})" if temp_range else ""
     
     # Create plots
-    fig, axes = plt.subplots(1, 4, figsize=(20, 5))
+    n_plots = 6 if include_entropy else 4
+    fig_width = 30 if include_entropy else 20
+    fig, axes = plt.subplots(1, n_plots, figsize=(fig_width, 5))
     fig.suptitle(f'Temperature vs Metrics: Model Comparison{temp_suffix} ({error_type})')
     
     for model_name, model_info in models_data.items():
@@ -471,11 +474,17 @@ def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
             vocab_err = ci_multiplier * temp_stats['vocab_std'] / np.sqrt(sample_size)
             mtld_err = ci_multiplier * temp_stats['mtld_std'] / np.sqrt(sample_size)
             semantic_err = ci_multiplier * temp_stats['semantic_std'] / np.sqrt(sample_size)
+            if include_entropy:
+                char_entropy_err = ci_multiplier * temp_stats['char_entropy_std'] / np.sqrt(sample_size)
+                token_entropy_err = ci_multiplier * temp_stats['token_entropy_std'] / np.sqrt(sample_size)
         else:
             lang_err = temp_stats['lang_conf_std']
             vocab_err = temp_stats['vocab_std']
             mtld_err = temp_stats['mtld_std']
             semantic_err = temp_stats['semantic_std']
+            if include_entropy:
+                char_entropy_err = temp_stats['char_entropy_std']
+                token_entropy_err = temp_stats['token_entropy_std']
         
         # Language confidence
         axes[0].errorbar(temp_stats['temperature'], temp_stats['lang_conf_mean'], 
@@ -492,10 +501,26 @@ def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
                          yerr=mtld_err, marker=marker, capsize=5, 
                          label=model_name, color=color, alpha=0.7)
         
-        # Semantic similarity
-        axes[3].errorbar(temp_stats['temperature'], temp_stats['semantic_mean'], 
-                         yerr=semantic_err, marker=marker, capsize=5, 
-                         label=model_name, color=color, alpha=0.7)
+        if include_entropy:
+            # Character entropy
+            axes[3].errorbar(temp_stats['temperature'], temp_stats['char_entropy_mean'], 
+                             yerr=char_entropy_err, marker=marker, capsize=5, 
+                             label=model_name, color=color, alpha=0.7)
+            
+            # Token entropy
+            axes[4].errorbar(temp_stats['temperature'], temp_stats['token_entropy_mean'], 
+                             yerr=token_entropy_err, marker=marker, capsize=5, 
+                             label=model_name, color=color, alpha=0.7)
+            
+            # Semantic similarity
+            axes[5].errorbar(temp_stats['temperature'], temp_stats['semantic_mean'], 
+                             yerr=semantic_err, marker=marker, capsize=5, 
+                             label=model_name, color=color, alpha=0.7)
+        else:
+            # Semantic similarity (position 3 when no entropy)
+            axes[3].errorbar(temp_stats['temperature'], temp_stats['semantic_mean'], 
+                             yerr=semantic_err, marker=marker, capsize=5, 
+                             label=model_name, color=color, alpha=0.7)
     
     # Set titles and labels
     axes[0].set_title('FastText Language Confidence\n(Joulin et al., 2017)')
@@ -516,11 +541,30 @@ def plot_combined_models_metrics(models_data, temp_range=None, use_ci=True):
     axes[2].legend()
     axes[2].grid(True, alpha=0.3)
     
-    axes[3].set_title('Semantic Similarity\n(Reimers & Gurevych, 2019)')
-    axes[3].set_xlabel('Temperature')
-    axes[3].set_ylabel('Similarity')
-    axes[3].legend()
-    axes[3].grid(True, alpha=0.3)
+    if include_entropy:
+        axes[3].set_title('Character Entropy\n(Shannon, normalized)')
+        axes[3].set_xlabel('Temperature')
+        axes[3].set_ylabel('Normalized Entropy')
+        axes[3].legend()
+        axes[3].grid(True, alpha=0.3)
+        
+        axes[4].set_title('Token Entropy\n(Shannon, normalized)')
+        axes[4].set_xlabel('Temperature')
+        axes[4].set_ylabel('Normalized Entropy')
+        axes[4].legend()
+        axes[4].grid(True, alpha=0.3)
+        
+        axes[5].set_title('Semantic Similarity\n(Reimers & Gurevych, 2019)')
+        axes[5].set_xlabel('Temperature')
+        axes[5].set_ylabel('Similarity')
+        axes[5].legend()
+        axes[5].grid(True, alpha=0.3)
+    else:
+        axes[3].set_title('Semantic Similarity\n(Reimers & Gurevych, 2019)')
+        axes[3].set_xlabel('Temperature')
+        axes[3].set_ylabel('Similarity')
+        axes[3].legend()
+        axes[3].grid(True, alpha=0.3)
     
     plt.tight_layout()
     return fig, axes
