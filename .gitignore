@@ -1,0 +1,25 @@
+# env
+.venv
+
+# cache
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+
+# data
+results/
+lid.176.bin
+
+# system
+.DS_Store
+
+# logs
+*.log
+*.tmp
+
+# testing
+.pytest_cache
+.mypy_cache
+.coverage
+htmlcov

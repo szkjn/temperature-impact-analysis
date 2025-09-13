@@ -1,0 +1,21 @@
+[project]
+name = "temperature-vs-singularity"
+version = "0.1.0"
+requires-python = ">=3.9"
+dependencies = [
+    "black",
+    "flake8",
+    "spacy>=3.7.0",
+    "lexicalrichness",
+    "jupyter",
+    "fr-core-news-lg",
+    "fasttext>=0.9.2",
+    "numpy>=1.26.0,<2.0.0",
+    "pandas",
+    "matplotlib",
+    "sentence-transformers",
+    "scikit-learn",
+]
+
+[tool.uv.sources]
+fr-core-news-lg = { url = "https://github.com/explosion/spacy-models/releases/download/fr_core_news_lg-3.7.0/fr_core_news_lg-3.7.0-py3-none-any.whl" }
