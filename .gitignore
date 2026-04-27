@@ -7,9 +7,11 @@ __pycache__
 *.pyo
 *.pyd
 
-# data
-results/
+# fastText language ID model (auto-downloaded on first run, ~125 MB)
 lid.176.bin
+
+# generated stats exports at the repo root
+/temperature_stats_*.csv
 
 # system
 .DS_Store
