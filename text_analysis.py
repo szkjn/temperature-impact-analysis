@@ -1,34 +1,28 @@
 import os
-import spacy
+import urllib.request
+
 import fasttext
-from lexicalrichness import LexicalRichness
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from lexicalrichness import LexicalRichness
 from sklearn.metrics.pairwise import cosine_similarity
 
-# Load models (lazy loading)
 _ft_model = None
-_nlp = None
+
 
 def _get_ft_model():
     global _ft_model
     if _ft_model is None:
         model_path = "lid.176.bin"
         if not os.path.exists(model_path):
-            import urllib.request
             urllib.request.urlretrieve(
-                "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin", 
-                model_path
+                "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.bin",
+                model_path,
             )
         _ft_model = fasttext.load_model(model_path)
     return _ft_model
 
-def _get_nlp():
-    global _nlp
-    if _nlp is None:
-        _nlp = spacy.load("fr_core_news_lg")
-    return _nlp
 
 def get_language_confidence(text):
     """
@@ -47,7 +41,7 @@ def get_language_confidence(text):
         detected_lang = labels[0].replace('__label__', '')
         confidence = scores[0]
         return detected_lang, confidence
-    except:
+    except Exception:
         return "unknown", 0.0
 
 def clean_text(text):
@@ -82,7 +76,7 @@ def calculate_mtld(text):
     try:
         lex = LexicalRichness(text)
         return lex.mtld(threshold=0.72)  # Standard threshold
-    except:
+    except Exception:
         return 0.0
 
 
@@ -212,7 +206,7 @@ def process_model_data(df, sbert_model, model_name="Model"):
     # Sort by temperature (low to high)
     analysis_df = analysis_df.sort_values('temperature').reset_index(drop=True)
     
-    print(f"✓ Analyzed {len(analysis_df)} samples for {model_name}")
+    print(f"Analyzed {len(analysis_df)} samples for {model_name}")
     print(f"  Temperature distribution: {sorted(analysis_df['temperature'].unique())}")
     
     return analysis_df
@@ -262,8 +256,47 @@ def calculate_temperature_stats(analysis_df, include_robust=True):
     return temp_stats
 
 
-def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type='ci', robust_center='mean', 
-                              show_zones=False, sweet_spot=(1, 1.5), degradation_threshold=1.5):
+PLOT_LABELS = {
+    'fr': {
+        'median': 'Médiane',
+        'mean': 'Moyenne',
+        'suptitle': 'Température vs Métriques',
+        'lang_title': 'Intégrité linguistique (fastText)',
+        'lang_xlabel': 'Température',
+        'lang_ylabel': 'Confiance',
+        'mtld_title': 'Diversité lexicale (MTLD)',
+        'mtld_xlabel': 'Température',
+        'mtld_ylabel': 'MTLD',
+        'sem_title': 'Similarité sémantique (Sentence-BERT)',
+        'sem_xlabel': 'Température',
+        'sem_ylabel': 'Similarité',
+        'sweet_zone': 'Zone de singularisation',
+        'break_zone': 'Régime de rupture',
+        'legend_title': 'Zones de température',
+    },
+    'en': {
+        'median': 'Median',
+        'mean': 'Mean',
+        'suptitle': 'Temperature vs Metrics',
+        'lang_title': 'Linguistic integrity (fastText)',
+        'lang_xlabel': 'Temperature',
+        'lang_ylabel': 'Confidence',
+        'mtld_title': 'Lexical diversity (MTLD)',
+        'mtld_xlabel': 'Temperature',
+        'mtld_ylabel': 'MTLD',
+        'sem_title': 'Semantic similarity (Sentence-BERT)',
+        'sem_xlabel': 'Temperature',
+        'sem_ylabel': 'Similarity',
+        'sweet_zone': 'Singularity zone',
+        'break_zone': 'Breakdown regime',
+        'legend_title': 'Temperature zones',
+    },
+}
+
+
+def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type='ci', robust_center='mean',
+                              show_zones=False, sweet_spot=(1, 1.4), degradation_threshold=1.5,
+                              figure_caption=None, language='fr'):
     """
     Create visualization for a single model's metrics with multiple error bar options.
     
@@ -293,16 +326,18 @@ def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type
             print("Warning: Robust statistics not available. Using mean instead.")
             robust_center = 'mean'
     
+    labels = PLOT_LABELS[language]
+
     if robust_center == 'median':
         lang_center = temp_stats['lang_conf_median']
         mtld_center = temp_stats['mtld_median']
         semantic_center = temp_stats['semantic_median']
-        center_label = "Median"
+        center_label = labels['median']
     else:
         lang_center = temp_stats['lang_conf_mean']
         mtld_center = temp_stats['mtld_mean']
         semantic_center = temp_stats['semantic_mean']
-        center_label = "Mean"
+        center_label = labels['mean']
     
     # Calculate error bars based on error_type
     if error_type == 'ci':
@@ -346,73 +381,89 @@ def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type
     else:
         raise ValueError(f"Unknown error_type: {error_type}. Use 'ci', 'std', 'mad', or 'iqr'.")
     
-    # Create plots
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5))
-    fig.suptitle(f'Temperature vs Metrics: {model_name} ({center_label} ± {error_label})')
+    # Create plots - 2x2 layout with 3 plots (2 on top, 1 on bottom)
+    fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+    fig.suptitle(f"{labels['suptitle']}: {model_name} ({center_label} ± {error_label})")
+    
+    # Flatten axes for easier indexing, but we'll only use first 3
+    axes_flat = axes.flatten()
     
     # Add zones if requested
     if show_zones:
         temp_min = temp_stats['temperature'].min()
         temp_max = temp_stats['temperature'].max()
         
-        for ax in axes:
-            # Sweet Spot (Optimal Zone) - Green
+        # Apply zones to first 3 plots only
+        for i in range(3):
+            ax = axes_flat[i]
+            # Singularity / sweet-spot zone — green
             if sweet_spot[0] <= temp_max and sweet_spot[1] >= temp_min:
-                ax.axvspan(max(sweet_spot[0], temp_min), min(sweet_spot[1], temp_max), 
-                          alpha=0.15, color='green', zorder=0,
-                          label=f'Sweet Spot ({sweet_spot[0]}-{sweet_spot[1]})')
-            
-            # Degradation Zone - Red
+                ax.axvspan(max(sweet_spot[0], temp_min), min(sweet_spot[1], temp_max),
+                          alpha=0.35, color='green', zorder=0,
+                          label=f"{labels['sweet_zone']} ({sweet_spot[0]}-{sweet_spot[1]})")
+
+            # Breakdown regime — red
             if degradation_threshold <= temp_max:
-                ax.axvspan(max(degradation_threshold, temp_min), temp_max, 
-                          alpha=0.15, color='red', zorder=0,
-                          label=f'Degradation Zone (≥{degradation_threshold})')
+                ax.axvspan(max(degradation_threshold, temp_min), temp_max,
+                          alpha=0.35, color='red', zorder=0,
+                          label=f"{labels['break_zone']} (≥{degradation_threshold})")
     
-    # Language confidence
-    axes[0].fill_between(temp_stats['temperature'], 
+    # Language confidence (top left)
+    axes_flat[0].fill_between(temp_stats['temperature'], 
                          lang_center - lang_err, 
                          lang_center + lang_err, 
                          alpha=0.1)
-    axes[0].plot(temp_stats['temperature'], lang_center, 'o-', linewidth=2, markersize=6)
-    axes[0].set_title('FastText Language Confidence\n(Joulin et al., 2017)')
-    axes[0].set_xlabel('Temperature')
-    axes[0].set_ylabel('Confidence')
-    axes[0].grid(True, alpha=0.3)
-    if show_zones:
-        axes[0].legend(loc='upper right', fontsize=8)
+    axes_flat[0].plot(temp_stats['temperature'], lang_center, 'o-', linewidth=1.5, markersize=3)
+    axes_flat[0].set_title(labels['lang_title'])
+    axes_flat[0].set_xlabel(labels['lang_xlabel'])
+    axes_flat[0].set_ylabel(labels['lang_ylabel'])
+    axes_flat[0].grid(True, alpha=0.3)
     
-    # MTLD
-    axes[1].fill_between(temp_stats['temperature'], 
+    # MTLD (top right)
+    axes_flat[1].fill_between(temp_stats['temperature'], 
                          mtld_center - mtld_err, 
                          mtld_center + mtld_err, 
                          alpha=0.1)
-    axes[1].plot(temp_stats['temperature'], mtld_center, 'o-', linewidth=2, markersize=6)
-    axes[1].set_title('MTLD Lexical Diversity\n(McCarthy & Jarvis, 2010)')
-    axes[1].set_xlabel('Temperature')
-    axes[1].set_ylabel('MTLD')
-    axes[1].grid(True, alpha=0.3)
-    if show_zones:
-        axes[1].legend(loc='upper right', fontsize=8)
+    axes_flat[1].plot(temp_stats['temperature'], mtld_center, 'o-', linewidth=1.5, markersize=3)
+    axes_flat[1].set_title(labels['mtld_title'])
+    axes_flat[1].set_xlabel(labels['mtld_xlabel'])
+    axes_flat[1].set_ylabel(labels['mtld_ylabel'])
+    axes_flat[1].grid(True, alpha=0.3)
     
-    # Semantic similarity
-    axes[2].fill_between(temp_stats['temperature'], 
+    # Semantic similarity (bottom left)
+    axes_flat[2].fill_between(temp_stats['temperature'], 
                          semantic_center - semantic_err, 
                          semantic_center + semantic_err, 
                          alpha=0.1)
-    axes[2].plot(temp_stats['temperature'], semantic_center, 'o-', linewidth=2, markersize=6)
-    axes[2].set_title('Semantic Similarity\n(Reimers & Gurevych, 2019)')
-    axes[2].set_xlabel('Temperature')
-    axes[2].set_ylabel('Similarity')
-    axes[2].grid(True, alpha=0.3)
+    axes_flat[2].plot(temp_stats['temperature'], semantic_center, 'o-', linewidth=1.5, markersize=3)
+    axes_flat[2].set_title(labels['sem_title'])
+    axes_flat[2].set_xlabel(labels['sem_xlabel'])
+    axes_flat[2].set_ylabel(labels['sem_ylabel'])
+    axes_flat[2].grid(True, alpha=0.3)
+    
+    # Use the bottom right subplot for the common legend
+    axes_flat[3].axis('off')  # Turn off axis
+    
     if show_zones:
-        axes[2].legend(loc='upper right', fontsize=8)
+        # Create legend handles manually
+        from matplotlib.patches import Patch
+        legend_elements = [
+            Patch(facecolor='green', alpha=0.35, label=f"{labels['sweet_zone']} ({sweet_spot[0]}-{sweet_spot[1]})"),
+            Patch(facecolor='red', alpha=0.35, label=f"{labels['break_zone']} (≥{degradation_threshold})")
+        ]
+
+        # Place legend in the bottom right subplot
+        axes_flat[3].legend(handles=legend_elements, loc='center', fontsize=14,
+                           title=labels['legend_title'], title_fontsize=16,
+                           frameon=False, handlelength=4, handleheight=2.5,
+                           labelspacing=1.2)
     
     plt.tight_layout()
     return fig, axes
 
 
 def plot_temperature_zone(temp_stats, model_name, temp_min=0.75, temp_max=1.5, sample_size=30, error_type='ci', robust_center='mean', 
-                          show_zones=False, sweet_spot=(1, 1.5), degradation_threshold=1.5):
+                          show_zones=False, sweet_spot=(1, 1.4), degradation_threshold=1.5):
     """
     Create visualization for a specific temperature range (zone of interest).
     
