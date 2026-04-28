@@ -4,7 +4,6 @@ version = "0.1.0"
 requires-python = ">=3.9"
 dependencies = [
     "fasttext>=0.9.2",
-    "jupyter",
     "lexicalrichness",
     "matplotlib",
     "numpy>=1.26.0,<2.0.0",

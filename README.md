@@ -24,7 +24,6 @@ For gpt-4.1 on these prompts, the singularity zone sits around **T ∈ [1.0, 1.4
 ```
 text_analysis.py     # metrics + plotting primitives
 metrics.py           # CLI: runs the full sweep set and renders figures
-metrics.ipynb        # same pipeline, notebook form (with rendered outputs)
 results/             # raw model completions per sweep (JSON)
 figures/             # rendered figures (PNG)
 ```
@@ -52,12 +51,6 @@ English labels, dark theme, save figures to `figures/`, export the full-sweep st
 
 ```bash
 uv run python metrics.py --language en --dark --save-figures --export-csv
-```
-
-Or work interactively:
-
-```bash
-uv run jupyter notebook metrics.ipynb
 ```
 
 ## Data
