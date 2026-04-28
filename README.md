@@ -17,7 +17,7 @@ Each metric is aggregated per temperature with a robust central tendency (median
 - **Singularity zone** (green) — diversity is climbing while integrity and similarity still hold.
 - **Breakdown regime** (red) — integrity collapses; the model is no longer producing coherent French.
 
-For gpt-4.1 on these prompts, the singularity zone sits around **T ∈ [1.0, 1.4]** and the breakdown regime starts around **T ≈ 1.5**.
+For gpt-4.1 on these prompts, the singularity zone sits around **T ∈ [1.2, 1.4]** and the breakdown regime starts around **T ≈ 1.5**.
 
 ## Repository layout
 

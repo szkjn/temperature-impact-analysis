@@ -57,7 +57,10 @@ def render(temp_stats, model_name, filename, language, save_figures,
     )
     if save_figures:
         FIGURES_DIR.mkdir(exist_ok=True)
-        fig.savefig(FIGURES_DIR / filename, dpi=150, transparent=True,
+        # English keeps the historical filenames so the README link is stable;
+        # other languages get a _<lang> suffix to avoid clobbering.
+        out_name = filename if language == "en" else filename.replace(".png", f"_{language}.png")
+        fig.savefig(FIGURES_DIR / out_name, dpi=150, transparent=True,
                     bbox_inches="tight")
     plt.show()
 

@@ -295,7 +295,7 @@ PLOT_LABELS = {
 
 
 def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type='ci', robust_center='mean',
-                              show_zones=False, sweet_spot=(1, 1.4), degradation_threshold=1.5,
+                              show_zones=False, sweet_spot=(1.2, 1.4), degradation_threshold=1.5,
                               figure_caption=None, language='fr'):
     """
     Create visualization for a single model's metrics with multiple error bar options.
@@ -462,8 +462,8 @@ def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type
     return fig, axes
 
 
-def plot_temperature_zone(temp_stats, model_name, temp_min=0.75, temp_max=1.5, sample_size=30, error_type='ci', robust_center='mean', 
-                          show_zones=False, sweet_spot=(1, 1.4), degradation_threshold=1.5):
+def plot_temperature_zone(temp_stats, model_name, temp_min=0.75, temp_max=1.5, sample_size=30, error_type='ci', robust_center='mean',
+                          show_zones=False, sweet_spot=(1.2, 1.4), degradation_threshold=1.5):
     """
     Create visualization for a specific temperature range (zone of interest).
     
