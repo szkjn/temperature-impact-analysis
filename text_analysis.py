@@ -314,7 +314,7 @@ def plot_single_model_metrics(temp_stats, model_name, sample_size=30, error_type
             - 'median': Use median (robust)
         show_zones (bool): If True, highlight sweet spot and degradation zones
         sweet_spot (tuple): Temperature range for optimal zone (default: 1.2-1.4)
-        degradation_threshold (float): Temperature where degradation begins (default: 1.4)
+        degradation_threshold (float): Temperature where degradation begins (default: 1.5)
     
     Returns:
         tuple: (fig, axes) matplotlib objects
